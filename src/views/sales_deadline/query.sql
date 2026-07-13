@@ -122,6 +122,12 @@ deadline_clients as (
 
     and c.team_member_id = uc.team_member_id
 
+    -- Netraukti apmokėtų klientų į deadline view
+    and coalesce(ps.name, '') <> 'Sumokėta'
+
+    -- Papildoma apsauga, jei is_paid kada nors bus true
+    and coalesce(c.is_paid, false) = false
+
     -- ESMINIS FILTERIS
     and c.factory_deadline is not null
 

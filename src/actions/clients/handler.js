@@ -11,6 +11,14 @@ const completeViewRequest = require(
   '../requests/complete'
 );
 
+const failViewRequest = require(
+  '../requests/fail'
+);
+
+const {
+  reportError,
+} = require('../../lib/report-error');
+
 const CREATE_SQL_PATH = path.join(
   __dirname,
   'create.sql'
@@ -31,10 +39,7 @@ async function executeSql({
   change,
   teamMemberId,
 }) {
-  const sql = await fs.readFile(
-    sqlPath,
-    'utf8'
-  );
+  const sql = await fs.readFile(sqlPath, 'utf8');
 
   const result = await db.query(
     sql,
@@ -51,9 +56,7 @@ async function executeCreate({
   change,
   teamMemberId,
 }) {
-  console.log(
-    '[CLIENTS ACTION] Executing CREATE'
-  );
+  console.log('[CLIENTS ACTION] Executing CREATE');
 
   return executeSql({
     sqlPath: CREATE_SQL_PATH,
@@ -66,9 +69,7 @@ async function executeUpdate({
   change,
   teamMemberId,
 }) {
-  console.log(
-    '[CLIENTS ACTION] Executing UPDATE'
-  );
+  console.log('[CLIENTS ACTION] Executing UPDATE');
 
   return executeSql({
     sqlPath: UPDATE_SQL_PATH,
@@ -81,9 +82,7 @@ async function executeDelete({
   change,
   teamMemberId,
 }) {
-  console.log(
-    '[CLIENTS ACTION] Executing DELETE'
-  );
+  console.log('[CLIENTS ACTION] Executing DELETE');
 
   return executeSql({
     sqlPath: DELETE_SQL_PATH,
@@ -96,21 +95,28 @@ async function processChanges({
   changes,
   teamMemberId,
   requestId,
+  publicRequestId,
+  viewKey,
+  userId,
+  route,
+  method,
 }) {
-  try {
-    const results = [];
+  const results = [];
 
-    for (const change of changes) {
-      const operation = String(
-        change?.operation || ''
-      )
-        .trim()
-        .toLowerCase();
+  for (let index = 0; index < changes.length; index += 1) {
+    const change = changes[index];
 
-      console.log(
-        `[CLIENTS ACTION] Operation: ${operation}`
-      );
+    const operation = String(
+      change?.operation || ''
+    )
+      .trim()
+      .toLowerCase();
 
+    console.log(
+      `[CLIENTS ACTION] Operation ${index + 1}/${changes.length}: ${operation}`
+    );
+
+    try {
       switch (operation) {
         case 'create': {
           const result = await executeCreate({
@@ -159,25 +165,51 @@ async function processChanges({
             `UNKNOWN_CLIENT_OPERATION: ${operation}`
           );
       }
+    } catch (error) {
+      console.error(
+        `[CLIENTS ACTION] Change failed ${index + 1}/${changes.length}:`,
+        error
+      );
+
+      await failViewRequest(
+        requestId,
+        error.message
+      );
+
+      await reportError({
+        error,
+        source: 'background_action',
+        route,
+        method,
+        actionKey: 'clients_save',
+        viewKey,
+        requestId: publicRequestId,
+        viewRequestId: requestId,
+        userId,
+        teamMemberId,
+        changeIndex: index,
+        operation,
+        entityId:
+          change?.id ||
+          change?.temp_id ||
+          null,
+        payload: change,
+        context: {
+          total_changes: changes.length,
+        },
+      });
+
+      return null;
     }
-
-    await completeViewRequest(requestId);
-
-    console.log(
-      `[CLIENTS ACTION] Background completed: ${requestId}`
-    );
-
-    return results;
-  } catch (error) {
-    console.error(
-      `[CLIENTS ACTION] Background failed: ${requestId}`,
-      error
-    );
-
-    // Kol kas paliekam running.
-    // Po expires_at requestas nustos blokuoti view.
-    return null;
   }
+
+  await completeViewRequest(requestId);
+
+  console.log(
+    `[CLIENTS ACTION] Background completed: ${requestId}`
+  );
+
+  return results;
 }
 
 async function clientsSaveHandler(req, res) {
@@ -209,10 +241,10 @@ async function clientsSaveHandler(req, res) {
     }
 
     const viewKey = String(
-      req.body?.view_key || 'sales_clients'
+      req.body?.view_key ||
+      'sales_clients'
     ).trim();
 
-    // 1. Sukuriam running view_request
     const viewRequest =
       await startViewRequest({
         teamMemberId,
@@ -221,19 +253,28 @@ async function clientsSaveHandler(req, res) {
         payload: req.body,
       });
 
-    // 2. Iškart atsakom frontendui
     res.status(202).json({
       ok: true,
       accepted: true,
-      request_id: viewRequest.request_id,
+      request_id:
+        viewRequest.request_id,
     });
 
-    // 3. Create / update / delete vyksta background'e
     setImmediate(() => {
       void processChanges({
         changes,
         teamMemberId,
-        requestId: viewRequest.id,
+        requestId:
+          viewRequest.id,
+        publicRequestId:
+          viewRequest.request_id,
+        viewKey,
+        userId:
+          req.user?.id || null,
+        route:
+          req.originalUrl,
+        method:
+          req.method,
       });
     });
   } catch (error) {
@@ -241,6 +282,24 @@ async function clientsSaveHandler(req, res) {
       '[CLIENTS ACTION] Failed to accept request:',
       error
     );
+
+    await reportError({
+      error,
+      source: 'route_handler',
+      route: req.originalUrl,
+      method: req.method,
+      actionKey: 'clients_save',
+      viewKey:
+        req.body?.view_key ||
+        'sales_clients',
+      userId:
+        req.user?.id || null,
+      teamMemberId:
+        req.context?.team_member_id ||
+        null,
+      payload:
+        req.body || null,
+    });
 
     if (!res.headersSent) {
       return res.status(500).json({

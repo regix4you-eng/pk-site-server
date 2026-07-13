@@ -1,5 +1,6 @@
 function transformView(input) {
   const FALLBACK_COLOR = "#64748B";
+  const GOOGLE_ADS_STATUS_NAME = "Google Ads reklama";
 
   function ensureArray(value) {
     if (!value) return [];
@@ -86,11 +87,35 @@ function transformView(input) {
 
   const defaultStatusId = defaultStatus?.value || "";
 
+  const googleAdsStatus = clientStatuses.find(status =>
+    String(status.label || "").trim().toLowerCase() ===
+    GOOGLE_ADS_STATUS_NAME.toLowerCase()
+  );
+
+  const googleAdsStatusId = googleAdsStatus?.value || "";
+
   function safeKey(value) {
     return String(value || "unknown")
       .toLowerCase()
       .replace(/[^a-z0-9_]+/g, "_")
       .replace(/^_+|_+$/g, "");
+  }
+
+  function isGoogleAdsClient(row) {
+    const statusName = String(row.status_name || "")
+      .trim()
+      .toLowerCase();
+
+    const statusId = String(row.status_id || "")
+      .trim();
+
+    return (
+      statusName === GOOGLE_ADS_STATUS_NAME.toLowerCase() ||
+      (
+        googleAdsStatusId &&
+        statusId === googleAdsStatusId
+      )
+    );
   }
 
   function normalizeClient(row) {
@@ -363,7 +388,6 @@ function transformView(input) {
         followup_time: "",
 
         factory_deadline: "",
-
         status_id: defaultStatusId,
         followup_count: 0,
         call_count: 0,
@@ -380,6 +404,8 @@ function transformView(input) {
 
         demo_url: "",
         website_url: "",
+
+        sort_order: null,
 
         created_at: "",
 
@@ -433,9 +459,17 @@ function transformView(input) {
     };
   }
 
-  function buildClientTable(tableKey, categoryId, rows) {
+  function buildClientTable(
+    tableKey,
+    categoryId,
+    rows,
+    options = {}
+  ) {
     const actions = [
-      addClientAction(categoryId)
+      addClientAction(categoryId, {
+        extraDefaults:
+          options.extraAddDefaults || {}
+      })
     ];
 
     if (categoryId && categoryId !== "uncategorized") {
@@ -563,12 +597,13 @@ function transformView(input) {
   function buildCategoryNode(
     category,
     rows,
-    defaultOpen = false
+    defaultOpen = false,
+    options = {}
   ) {
     const categoryId = category.id;
 
     const tableKey =
-      `sales_clients_${safeKey(categoryId)}`;
+      `${options.tablePrefix || "sales_clients"}_${safeKey(categoryId)}`;
 
     const sectionKey =
       `${tableKey}_section`;
@@ -603,7 +638,11 @@ function transformView(input) {
         buildClientTable(
           tableKey,
           categoryId,
-          rows
+          rows,
+          {
+            extraAddDefaults:
+              options.extraAddDefaults || {}
+          }
         )
       ]
     };
@@ -623,8 +662,8 @@ function transformView(input) {
         operation: "create",
 
         target: {
-          type: "view",
-          key: "sales_clients",
+          type: "node",
+          key: "sales_clients_all_tab",
           path: "children",
           position: "prepend"
         },
@@ -677,52 +716,127 @@ function transformView(input) {
     };
   }
 
-  const rowsByCategory = new Map();
+  const regularRowsByCategory = new Map();
+  const googleAdsRowsByCategory = new Map();
 
-  for (const client of clients) {
+  for (const rawClient of clients) {
+    const client = normalizeClient(rawClient);
+
     const categoryId =
       client.category_id || "uncategorized";
 
-    if (!rowsByCategory.has(categoryId)) {
-      rowsByCategory.set(categoryId, []);
+    const targetMap =
+      isGoogleAdsClient(client)
+        ? googleAdsRowsByCategory
+        : regularRowsByCategory;
+
+    if (!targetMap.has(categoryId)) {
+      targetMap.set(categoryId, []);
     }
 
-    rowsByCategory
+    targetMap
       .get(categoryId)
-      .push(normalizeClient(client));
+      .push(client);
   }
 
-  const categoryNodes = [];
+  function buildCategoryNodesForMap({
+    rowsByCategory,
+    includeEmptyCategories,
+    tablePrefix,
+    extraAddDefaults,
+  }) {
+    const nodes = [];
 
-  for (const category of categories) {
-    const rows =
-      rowsByCategory.get(category.id) || [];
+    for (const category of categories) {
+      const rows =
+        rowsByCategory.get(category.id) || [];
 
-    categoryNodes.push(
-      buildCategoryNode(
-        category,
-        rows,
-        false
-      )
-    );
+      if (
+        !includeEmptyCategories &&
+        rows.length === 0
+      ) {
+        continue;
+      }
+
+      nodes.push(
+        buildCategoryNode(
+          category,
+          rows,
+          false,
+          {
+            tablePrefix,
+            extraAddDefaults,
+          }
+        )
+      );
+    }
+
+    const uncategorizedRows =
+      rowsByCategory.get("uncategorized") || [];
+
+    if (uncategorizedRows.length > 0) {
+      nodes.push(
+        buildCategoryNode(
+          {
+            id: "uncategorized",
+            name: "Be kategorijos",
+            color: uncategorizedColor
+          },
+          uncategorizedRows,
+          true,
+          {
+            tablePrefix,
+            extraAddDefaults,
+          }
+        )
+      );
+    }
+
+    return nodes;
   }
 
-  const uncategorizedRows =
-    rowsByCategory.get("uncategorized") || [];
+  const allCategoryNodes =
+    buildCategoryNodesForMap({
+      rowsByCategory: regularRowsByCategory,
+      includeEmptyCategories: true,
+      tablePrefix: "sales_clients",
+      extraAddDefaults: {},
+    });
 
-  if (uncategorizedRows.length > 0) {
-    categoryNodes.push(
-      buildCategoryNode(
-        {
-          id: "uncategorized",
-          name: "Be kategorijos",
-          color: uncategorizedColor
-        },
-        uncategorizedRows,
-        true
-      )
-    );
-  }
+  const googleAdsCategoryNodes =
+    buildCategoryNodesForMap({
+      rowsByCategory: googleAdsRowsByCategory,
+      includeEmptyCategories: false,
+      tablePrefix: "sales_clients_google_ads",
+      extraAddDefaults: {
+        status_id:
+          googleAdsStatusId || defaultStatusId
+      },
+    });
+
+  const tabsNode = {
+    key: "sales_clients_tabs",
+    type: "tabs",
+    config: {
+      default_child_key: "sales_clients_all_tab"
+    },
+    children: [
+      {
+        key: "sales_clients_all_tab",
+        type: "tab",
+        label: "Visi",
+        actions: [],
+        children: allCategoryNodes
+      },
+      {
+        key: "sales_clients_google_ads_tab",
+        type: "tab",
+        label: "Google Ads",
+        actions: [],
+        children: googleAdsCategoryNodes
+      }
+    ]
+  };
 
   return {
     version: "ui.v1",
@@ -730,13 +844,15 @@ function transformView(input) {
     root: {
       key: "sales_clients",
       type: "view",
-      label: "Klientai",
+      label: "",
 
       actions: [
         addCategoryAction()
       ],
 
-      children: categoryNodes
+      children: [
+        tabsNode
+      ]
     },
 
     resources: {
@@ -753,6 +869,15 @@ function transformView(input) {
       category_colors: {
         type: "options",
         data: categoryColorOptions
+      },
+
+      category_options: {
+        type: "options",
+        data: categories.map(category => ({
+          value: category.id,
+          label: category.name,
+          color: category.color
+        }))
       }
     }
   };

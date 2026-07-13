@@ -11,6 +11,14 @@ const completeViewRequest = require(
   '../requests/complete'
 );
 
+const failViewRequest = require(
+  '../requests/fail'
+);
+
+const {
+  reportError,
+} = require('../../lib/report-error');
+
 const UPDATE_SQL_PATH = path.join(
   __dirname,
   'update.sql'
@@ -20,10 +28,6 @@ async function executeUpdate({
   change,
   teamMemberId,
 }) {
-  console.log(
-    '[SERVICES ACTION] Executing UPDATE'
-  );
-
   const sql = await fs.readFile(
     UPDATE_SQL_PATH,
     'utf8'
@@ -44,20 +48,35 @@ async function processChanges({
   changes,
   teamMemberId,
   requestId,
+  publicRequestId,
+  viewKey,
+  userId,
+  route,
+  method,
 }) {
-  try {
-    const results = [];
+  const results = [];
 
-    for (const change of changes) {
-      const operation = String(
-        change?.operation || 'update'
-      )
-        .trim()
-        .toLowerCase();
+  for (
+    let index = 0;
+    index < changes.length;
+    index += 1
+  ) {
+    const change = changes[index];
 
+    const operation = String(
+      change?.operation || 'update'
+    )
+      .trim()
+      .toLowerCase();
+
+    console.log(
+      `[SERVICES ACTION] Operation ${index + 1}/${changes.length}: ${operation}`
+    );
+
+    try {
       if (operation !== 'update') {
         throw new Error(
-          `UNSUPPORTED_SERVICE_OPERATION: ${operation}`
+          `UNKNOWN_SERVICE_OPERATION: ${operation}`
         );
       }
 
@@ -70,37 +89,65 @@ async function processChanges({
         operation,
         result,
       });
+    } catch (error) {
+      console.error(
+        `[SERVICES ACTION] Change failed ${index + 1}/${changes.length}:`,
+        error
+      );
+
+      await failViewRequest(
+        requestId,
+        error.message
+      );
+
+      await reportError({
+        error,
+        source: 'background_action',
+        route,
+        method,
+        actionKey: 'services_save',
+        viewKey,
+        requestId: publicRequestId,
+        viewRequestId: requestId,
+        userId,
+        teamMemberId,
+        changeIndex: index,
+        operation,
+        entityId:
+          change?.id ||
+          change?.temp_id ||
+          null,
+        payload: change,
+        context: {
+          total_changes: changes.length,
+        },
+      });
+
+      return null;
     }
-
-    await completeViewRequest(requestId);
-
-    console.log(
-      `[SERVICES ACTION] Background completed: ${requestId}`
-    );
-
-    return results;
-  } catch (error) {
-    console.error(
-      `[SERVICES ACTION] Background failed: ${requestId}`,
-      error
-    );
-
-    // Kol kas lieka running.
-    // Po expires_at nustos blokuoti view.
-    return null;
   }
+
+  await completeViewRequest(
+    requestId
+  );
+
+  console.log(
+    `[SERVICES ACTION] Background completed: ${requestId}`
+  );
+
+  return results;
 }
 
 async function servicesSaveHandler(req, res) {
   try {
-    const changes = req.body?.changes;
+    const rawChanges =
+      req.body?.changes;
 
-    if (!Array.isArray(changes)) {
-      return res.status(400).json({
-        ok: false,
-        error: 'INVALID_CHANGES',
-      });
-    }
+    const changes = Array.isArray(rawChanges)
+      ? rawChanges
+      : rawChanges
+        ? [rawChanges]
+        : [];
 
     if (changes.length === 0) {
       return res.status(400).json({
@@ -120,10 +167,10 @@ async function servicesSaveHandler(req, res) {
     }
 
     const viewKey = String(
-      req.body?.view_key || 'services'
+      req.body?.view_key ||
+      'services'
     ).trim();
 
-    // 1. Sukuriam running view_request
     const viewRequest =
       await startViewRequest({
         teamMemberId,
@@ -132,19 +179,28 @@ async function servicesSaveHandler(req, res) {
         payload: req.body,
       });
 
-    // 2. Iškart atsakom frontendui
     res.status(202).json({
       ok: true,
       accepted: true,
-      request_id: viewRequest.request_id,
+      request_id:
+        viewRequest.request_id,
     });
 
-    // 3. Update'ai vyksta background'e
     setImmediate(() => {
       void processChanges({
         changes,
         teamMemberId,
-        requestId: viewRequest.id,
+        requestId:
+          viewRequest.id,
+        publicRequestId:
+          viewRequest.request_id,
+        viewKey,
+        userId:
+          req.user?.id || null,
+        route:
+          req.originalUrl,
+        method:
+          req.method,
       });
     });
   } catch (error) {
@@ -152,6 +208,24 @@ async function servicesSaveHandler(req, res) {
       '[SERVICES ACTION] Failed to accept request:',
       error
     );
+
+    await reportError({
+      error,
+      source: 'route_handler',
+      route: req.originalUrl,
+      method: req.method,
+      actionKey: 'services_save',
+      viewKey:
+        req.body?.view_key ||
+        'services',
+      userId:
+        req.user?.id || null,
+      teamMemberId:
+        req.context?.team_member_id ||
+        null,
+      payload:
+        req.body || null,
+    });
 
     if (!res.headersSent) {
       return res.status(500).json({
