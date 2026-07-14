@@ -207,7 +207,7 @@ function transformDemoView(input) {
     },
     {
       key: 'base44_prompt',
-      label: 'Promptas',
+      label: 'Paruoštas Promptas',
       field_type: 'text',
       editable: true,
       config: {
