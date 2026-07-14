@@ -3,6 +3,10 @@ const fs = require('fs/promises');
 
 const db = require('../lib/db');
 
+const {
+  reportError,
+} = require('../lib/report-error');
+
 const requireAuth = require(
   '../middleware/auth.middleware'
 );
@@ -42,9 +46,9 @@ router.get(
   waitForViewRequests,
 
   async (req, res) => {
-    try {
-      const { viewKey } = req.params;
+    const { viewKey } = req.params;
 
+    try {
       console.log(`[VIEW] Received: ${viewKey}`);
 
       const view = getViewDefinition(viewKey);
@@ -115,6 +119,22 @@ router.get(
         '[VIEW] Execution failed:',
         error
       );
+
+      await reportError({
+        error,
+        source: 'view_route',
+        route: req.originalUrl,
+        method: req.method,
+        viewKey,
+        userId:
+          req.user?.id || null,
+        teamMemberId:
+          req.context?.team_member_id || null,
+        payload: {
+          params: req.params,
+          query: req.query,
+        },
+      });
 
       return res.status(500).json({
         ok: false,
