@@ -35,6 +35,7 @@ demo_services as (
     coalesce(ps.color, '#64748B') as status_color,
 
     sv.comment,
+    sv.completion_comment,
     sv.url,
 
     coalesce(sv.is_completed, false) as is_completed,
@@ -81,6 +82,7 @@ select
         'status_name', ds.status_name,
         'status_color', ds.status_color,
         'comment', ds.comment,
+        'completion_comment', ds.completion_comment,
         'url', ds.url,
         'is_completed', ds.is_completed,
         'is_trashed', ds.is_trashed,

@@ -98,6 +98,9 @@ function transformDemoView(input) {
             ''
           : row.source_url || '',
 
+      base44_url:
+        row.base44_url || '',
+
       status_id: statusId,
 
       status_name:
@@ -113,6 +116,9 @@ function transformDemoView(input) {
 
       comment:
         row.comment || '',
+
+      completion_comment:
+        row.completion_comment || '',
 
       url:
         row.url || '',
@@ -209,6 +215,26 @@ function transformDemoView(input) {
       config: {
         display: 'truncate',
         overflow: 'popover',
+      },
+    },
+    {
+      key: 'completion_comment',
+      label: 'Komentaras po gamybos',
+      field_type: 'text',
+      editable: true,
+      config: {
+        display: 'truncate',
+        overflow: 'popover',
+      },
+    },
+    {
+      key: 'base44_url',
+      label: 'Gamybos nuoroda',
+      field_type: 'link',
+      editable: false,
+      config: {
+        open_in_new_tab: true,
+        empty_label: 'Laukia...',
       },
     },
     {
