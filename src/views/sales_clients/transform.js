@@ -303,8 +303,8 @@ function transformView(input) {
       editable: true
     },
     {
-      key: "paid_amount",
-      label: "Sumokėta",
+      key: "remaining_amount",
+      label: "Nesumokėta",
       field_type: "number",
       editable: false,
       config: {
