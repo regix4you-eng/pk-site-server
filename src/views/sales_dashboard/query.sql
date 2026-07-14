@@ -55,8 +55,6 @@ scoped_clients as (
 
 financial_kpis as (
   select
-
-    /* Kiek realiai jau gauta pinigų */
     coalesce(
       sum(
         coalesce(sc.advance_paid, 0)
@@ -64,7 +62,6 @@ financial_kpis as (
       0
     ) as earned,
 
-    /* Kiek dar liko gauti */
     coalesce(
       sum(
         greatest(
@@ -76,8 +73,6 @@ financial_kpis as (
       0
     ) as waiting_payment,
 
-    /* Bendra sutarta klientų vertė.
-       Permoka potencialo nedidina. */
     coalesce(
       sum(
         coalesce(sc.price, 0)
@@ -90,7 +85,6 @@ financial_kpis as (
 
 client_kpis as (
   select
-
     count(*) filter (
       where coalesce(sc.is_paid, false) = false
     ) as open_clients,
@@ -230,6 +224,7 @@ hot_clients as (
 
   where sl.name in (
     'Dokumentai išsiųsti',
+    'Svetainė padaryta',
     'Svetainė padaryta ir išsiųsta'
   )
 ),
@@ -269,7 +264,6 @@ priority_options as (
 )
 
 select
-
   json_build_object(
     'earned',
       fk.earned,
