@@ -9,7 +9,10 @@ function transformView(input) {
     if (typeof value === "string") {
       try {
         const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed : [];
+
+        return Array.isArray(parsed)
+          ? parsed
+          : [];
       } catch {
         return [];
       }
@@ -40,94 +43,61 @@ function transformView(input) {
     return {
       value: String(option.value || ""),
       label: String(option.label || ""),
-      color: normalizeColor(option.color)
+      color: normalizeColor(option.color),
     };
   }
 
-
-  // =========================================================
-  // DATA
-  // =========================================================
-
   const clients = ensureArray(input.clients);
 
-  const clientStatuses = ensureArray(input.client_statuses)
+  const clientStatuses = ensureArray(
+    input.client_statuses
+  )
     .map(normalizeOption)
-    .filter(option => option.value && option.label);
+    .filter(
+      (option) =>
+        option.value &&
+        option.label
+    );
 
-
-  /**
-   * Neutralus statusų sąrašas šitam view.
-   * Tikslas: sales_paid status select turi atrodyti
-   * kaip paprastas dropdown.
-   */
-  const neutralClientStatuses = clientStatuses.map(status => ({
-    value: status.value,
-    label: status.label
-  }));
-
+  const neutralClientStatuses =
+    clientStatuses.map((status) => ({
+      value: status.value,
+      label: status.label,
+    }));
 
   const statusLabelById = new Map(
-    clientStatuses.map(status => [
+    clientStatuses.map((status) => [
       String(status.value),
-      String(status.label || "")
+      String(status.label || ""),
     ])
   );
-
 
   const statusColorById = new Map(
-    clientStatuses.map(status => [
+    clientStatuses.map((status) => [
       String(status.value),
-      normalizeColor(status.color)
+      normalizeColor(status.color),
     ])
   );
 
-
-  // =========================================================
-  // ROWS
-  // =========================================================
-
-  const rows = clients.map(row => {
-    const statusId = String(row.status_id || "");
+  const rows = clients.map((row) => {
+    const statusId = String(
+      row.status_id || ""
+    );
 
     return {
       id: row.id,
 
-      // =====================================================
-      // 1. Pavadinimas
-      // =====================================================
-
       company_name:
         row.company_name || "",
-
-
-      // =====================================================
-      // 2. Klientas
-      // =====================================================
 
       contact_name:
         row.contact_name || "",
 
-
-      // =====================================================
-      // 3. Telefonas
-      // =====================================================
-
       phone:
         row.phone || "",
 
-
-      // =====================================================
-      // 4. Nuoroda
-      // =====================================================
-
       source_url:
         row.source_url || "",
-
-
-      // =====================================================
-      // 5. Būsena
-      // =====================================================
 
       status_id:
         statusId,
@@ -143,26 +113,11 @@ function transformView(input) {
           statusColorById.get(statusId)
         ),
 
-
-      // =====================================================
-      // 6. Kaina
-      // =====================================================
-
       price:
         row.price ?? "",
 
-
-      // =====================================================
-      // 7. Avansas
-      // =====================================================
-
       advance_paid:
         row.advance_paid ?? "",
-
-
-      // =====================================================
-      // 8. Sumokėta
-      // =====================================================
 
       paid_amount:
         row.paid_amount ??
@@ -174,26 +129,11 @@ function transformView(input) {
           ? row.is_paid
           : false,
 
-
-      // =====================================================
-      // 9. Svetainė
-      // =====================================================
-
       website_url:
         row.website_url || "",
 
-
-      // =====================================================
-      // 10. Komentaras po gamybos
-      // =====================================================
-
       post_production_comment:
         row.post_production_comment || "",
-
-
-      // =====================================================
-      // PAPILDOMI / TECHNINIAI FIELDAI
-      // =====================================================
 
       email:
         row.email || "",
@@ -241,163 +181,73 @@ function transformView(input) {
         row.created_at || "",
 
       updated_at:
-        row.updated_at || ""
+        row.updated_at || "",
     };
   });
 
-
-  // =========================================================
-  // COLUMNS
-  // =========================================================
-
   const columns = [
-
-    // =====================================================
-    // 1. Pavadinimas
-    // =====================================================
-
     {
       key: "company_name",
       label: "Pavadinimas",
       field_type: "text",
-      editable: false
+      editable: false,
     },
-
-
-    // =====================================================
-    // 2. Klientas
-    // =====================================================
-
     {
       key: "contact_name",
       label: "Klientas",
       field_type: "text",
-      editable: false
+      editable: false,
     },
-
-
-    // =====================================================
-    // 3. Telefonas
-    // =====================================================
-
     {
       key: "phone",
       label: "Tel.",
-      field_type: "phone",
-      editable: false
+      field_type: "text",
+      editable: false,
     },
-
-
-    // =====================================================
-    // 4. Nuoroda
-    // =====================================================
-
     {
       key: "source_url",
       label: "Nuoroda",
       field_type: "link",
       editable: false,
-
       config: {
         open_in_new_tab: true,
-        empty_label: ""
-      }
+        empty_label: "",
+      },
     },
-
-
-    // =====================================================
-    // 5. Būsena
-    // =====================================================
-
     {
       key: "status_id",
       label: "Būsena",
       field_type: "select",
       editable: true,
-      options_ref: "client_statuses_neutral"
+      options_ref: "client_statuses_neutral",
     },
-
-
-    // =====================================================
-    // 6. Kaina
-    // =====================================================
-
-    {
-      key: "price",
-      label: "Kaina",
-      field_type: "number",
-      editable: false
-    },
-
-
-    // =====================================================
-    // 7. Avansas
-    // =====================================================
-
-    {
-      key: "advance_paid",
-      label: "Avansas",
-      field_type: "number",
-      editable: false
-    },
-
-
-    // =====================================================
-    // 8. Sumokėta
-    // =====================================================
-
     {
       key: "paid_amount",
       label: "Sumokėta",
       field_type: "number",
-      editable: false
+      editable: false,
     },
-
-
-    // =====================================================
-    // 9. Svetainė
-    // =====================================================
-
     {
       key: "website_url",
       label: "Svetainė",
       field_type: "link",
       editable: false,
-
       config: {
         open_in_new_tab: true,
-        empty_label: "Laukia..."
-      }
+        empty_label: "Laukia...",
+      },
     },
-
-
-    // =====================================================
-    // 10. Komentaras po gamybos
-    // =====================================================
-
     {
       key: "post_production_comment",
       label: "Komentaras po gamybos",
       field_type: "text",
       editable: true,
-
       config: {
         display: "truncate",
-        overflow: "popover"
-      }
-    }
+        overflow: "popover",
+      },
+    },
   ];
-
-
-  // =========================================================
-  // TRASH ACTION
-  //
-  // Tokia pati logika kaip pagrindiniame Clients view:
-  //
-  // row.operation = "delete"
-  // → autosave changeset
-  // → PATCH /actions/clients/save
-  // =========================================================
 
   function trashClientAction() {
     return {
@@ -410,17 +260,12 @@ function transformView(input) {
 
       effect: {
         type: "mark_row_operation",
-        operation: "delete"
+        operation: "delete",
       },
 
-      confirm: true
+      confirm: true,
     };
   }
-
-
-  // =========================================================
-  // RESPONSE
-  // =========================================================
 
   return {
     version: "ui.v1",
@@ -449,35 +294,35 @@ function transformView(input) {
               api_url: "/actions/clients/save",
 
               payload: {
-                source: "changeset"
-              }
+                source: "changeset",
+              },
             },
 
-            columns
+            columns,
           },
 
           data: {
-            rows
+            rows,
           },
 
           actions: [
-            trashClientAction()
-          ]
-        }
-      ]
+            trashClientAction(),
+          ],
+        },
+      ],
     },
 
     resources: {
       client_statuses: {
         type: "options",
-        data: clientStatuses
+        data: clientStatuses,
       },
 
       client_statuses_neutral: {
         type: "options",
-        data: neutralClientStatuses
-      }
-    }
+        data: neutralClientStatuses,
+      },
+    },
   };
 }
 
