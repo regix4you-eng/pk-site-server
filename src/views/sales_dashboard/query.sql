@@ -225,7 +225,8 @@ hot_clients as (
   where sl.name in (
     'Dokumentai išsiųsti',
     'Svetainė padaryta',
-    'Svetainė padaryta ir išsiųsta'
+    'Svetainė padaryta ir išsiųsta',
+    'Svetainė pakoreguota'
   )
 ),
 
