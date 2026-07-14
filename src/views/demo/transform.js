@@ -75,10 +75,7 @@ function transformDemoView(input) {
     );
   }
 
-  function mapServiceRow(
-    row,
-    sourceUrlMode = 'source'
-  ) {
+  function mapServiceRow(row) {
     const statusId = String(
       row.status_id || ''
     );
@@ -92,16 +89,16 @@ function transformDemoView(input) {
         '',
 
       source_url:
-        sourceUrlMode === 'base44_first'
-          ? row.base44_url ||
-            row.source_url ||
-            ''
-          : row.source_url || '',
+        row.source_url || '',
 
       base44_url:
         row.base44_url || '',
 
-      status_id: statusId,
+      base44_prompt:
+        row.base44_prompt || '',
+
+      status_id:
+        statusId,
 
       status_name:
         row.status_name ||
@@ -131,10 +128,7 @@ function transformDemoView(input) {
         !isDone(row) &&
         !row.is_trashed
     )
-    .map(
-      (row) =>
-        mapServiceRow(row, 'source')
-    );
+    .map(mapServiceRow);
 
   const completedRows = services
     .filter(
@@ -142,13 +136,7 @@ function transformDemoView(input) {
         isDone(row) &&
         !row.is_trashed
     )
-    .map(
-      (row) =>
-        mapServiceRow(
-          row,
-          'base44_first'
-        )
-    );
+    .map(mapServiceRow);
 
   const trashRows = services
     .filter((row) => row.is_trashed)
@@ -210,6 +198,16 @@ function transformDemoView(input) {
     {
       key: 'comment',
       label: 'Komentaras',
+      field_type: 'text',
+      editable: true,
+      config: {
+        display: 'truncate',
+        overflow: 'popover',
+      },
+    },
+    {
+      key: 'base44_prompt',
+      label: 'Promptas',
       field_type: 'text',
       editable: true,
       config: {

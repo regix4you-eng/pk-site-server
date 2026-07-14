@@ -23,6 +23,17 @@ input_data as (
     end as comment_raw,
 
     case
+      when $1::jsonb #> '{fields,base44_prompt}' is null
+      then '__NO_CHANGE__'
+      else trim(
+        coalesce(
+          $1::jsonb #>> '{fields,base44_prompt}',
+          ''
+        )
+      )
+    end as base44_prompt_raw,
+
+    case
       when $1::jsonb #> '{fields,url}' is null
       then '__NO_CHANGE__'
       else trim(
@@ -108,6 +119,16 @@ updated_service as (
       )
     end,
 
+    base44_prompt = case
+      when i.base44_prompt_raw = '__NO_CHANGE__'
+      then s.base44_prompt
+
+      else nullif(
+        trim(i.base44_prompt_raw),
+        ''
+      )
+    end,
+
     url = case
       when i.url_raw = '__NO_CHANGE__'
       then s.url
@@ -169,6 +190,7 @@ updated_service as (
     s.status_id,
     s.assigned_team_member_id,
     s.comment,
+    s.base44_prompt,
     s.url,
     s.deadline,
     s.completion_comment,
@@ -243,6 +265,7 @@ select
     as assigned_team_member_id,
 
   us.comment,
+  us.base44_prompt,
   us.url,
   us.deadline,
   us.completion_comment,
