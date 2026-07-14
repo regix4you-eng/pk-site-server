@@ -29,12 +29,15 @@ demo_services as (
     c.source_url,
 
     sv.base44_url,
+    sv.base44_prompt,
+
     sv.status_id::text as status_id,
 
     ps.name as status_name,
     coalesce(ps.color, '#64748B') as status_color,
 
     sv.comment,
+    sv.completion_comment,
     sv.url,
 
     coalesce(sv.is_completed, false) as is_completed,
@@ -77,10 +80,12 @@ select
         'company_name', ds.company_name,
         'source_url', ds.source_url,
         'base44_url', ds.base44_url,
+        'base44_prompt', ds.base44_prompt,
         'status_id', ds.status_id,
         'status_name', ds.status_name,
         'status_color', ds.status_color,
         'comment', ds.comment,
+        'completion_comment', ds.completion_comment,
         'url', ds.url,
         'is_completed', ds.is_completed,
         'is_trashed', ds.is_trashed,
