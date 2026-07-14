@@ -69,19 +69,28 @@ function transformView(input) {
 
     return {
       id: row.id,
+
       company_name: row.company_name || "",
       phone: row.phone || "",
       contact_name: row.contact_name || "",
       email: row.email || "",
       source_url: row.source_url || "",
 
+      reminder: row.reminder || "",
+      comment: row.comment || "",
+
       demo_url: row.demo_url || "",
       website_url: row.website_url || "",
 
       status_id: statusId,
-      status_name: row.status_name || statusLabelById.get(statusId) || "",
+      status_name:
+        row.status_name ||
+        statusLabelById.get(statusId) ||
+        "",
+
       status_color: normalizeColor(
-        row.status_color || statusColorById.get(statusId)
+        row.status_color ||
+        statusColorById.get(statusId)
       ),
 
       followup_count: row.followup_count ?? "",
@@ -116,6 +125,26 @@ function transformView(input) {
       label: "Kontaktinis asmuo",
       field_type: "text",
       editable: false
+    },
+    {
+      key: "reminder",
+      label: "Priminimas",
+      field_type: "text",
+      editable: true,
+      config: {
+        display: "truncate",
+        overflow: "popover"
+      }
+    },
+    {
+      key: "comment",
+      label: "Komentaras",
+      field_type: "text",
+      editable: true,
+      config: {
+        display: "truncate",
+        overflow: "popover"
+      }
     },
     {
       key: "status_id",
@@ -173,29 +202,35 @@ function transformView(input) {
 
   return {
     version: "ui.v1",
+
     root: {
       key: "sales_deadline",
       type: "view",
       label: "",
+
       children: [
         {
           key: "sales_deadline_table",
           type: "table",
           label: "Reikia susisiekti",
+
           config: {
             primary_key: "id",
             editable: true,
             columns
           },
+
           data: {
             rows
           },
+
           actions: [
             saveAction("sales_deadline_table")
           ]
         }
       ]
     },
+
     resources: {
       client_statuses: {
         type: "options",

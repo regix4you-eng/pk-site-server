@@ -37,6 +37,9 @@ deadline_clients as (
     c.contact_name,
     c.source_url,
 
+    c.reminder,
+    c.comment,
+
     c.status_id::text as status_id,
     ps.name as status_name,
     coalesce(ps.color, '#64748B') as status_color,
@@ -122,16 +125,12 @@ deadline_clients as (
 
     and c.team_member_id = uc.team_member_id
 
-    -- Netraukti apmokėtų klientų į deadline view
     and coalesce(ps.name, '') <> 'Sumokėta'
 
-    -- Papildoma apsauga, jei is_paid kada nors bus true
     and coalesce(c.is_paid, false) = false
 
-    -- ESMINIS FILTERIS
     and c.factory_deadline is not null
 
-    -- NERODYTI ATEITIES DEADLINE
     and c.factory_deadline::date <= current_date
 )
 
@@ -151,6 +150,9 @@ select
             'company_name', dc.company_name,
             'phone', dc.phone,
             'contact_name', dc.contact_name,
+
+            'reminder', dc.reminder,
+            'comment', dc.comment,
 
             'status_id', dc.status_id,
             'status_name', dc.status_name,

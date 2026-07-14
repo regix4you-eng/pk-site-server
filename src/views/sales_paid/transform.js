@@ -184,6 +184,14 @@ function transformView(input) {
 
 
       // =====================================================
+      // 10. Komentaras po gamybos
+      // =====================================================
+
+      post_production_comment:
+        row.post_production_comment || "",
+
+
+      // =====================================================
       // PAPILDOMI / TECHNINIAI FIELDAI
       // =====================================================
 
@@ -340,7 +348,7 @@ function transformView(input) {
 
     {
       key: "paid_amount",
-      label: "",
+      label: "Sumokėta",
       field_type: "number",
       editable: false
     },
@@ -359,6 +367,23 @@ function transformView(input) {
       config: {
         open_in_new_tab: true,
         empty_label: "Laukia..."
+      }
+    },
+
+
+    // =====================================================
+    // 10. Komentaras po gamybos
+    // =====================================================
+
+    {
+      key: "post_production_comment",
+      label: "Komentaras po gamybos",
+      field_type: "text",
+      editable: true,
+
+      config: {
+        display: "truncate",
+        overflow: "popover"
       }
     }
   ];
