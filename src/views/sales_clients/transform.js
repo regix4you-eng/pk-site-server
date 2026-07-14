@@ -279,8 +279,14 @@ function transformView(input) {
     },
     {
       key: "followup_count",
-      label: "Sk",
+      label: "Skambučiai",
       field_type: "number",
+      editable: true
+    },
+    {
+      key: "followup_time",
+      label: "Skambinti",
+      field_type: "datetime",
       editable: true
     },
     {
