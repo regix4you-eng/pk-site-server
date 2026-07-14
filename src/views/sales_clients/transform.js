@@ -313,7 +313,13 @@ function transformView(input) {
         paid_field: "advance_paid",
         remaining_field: "remaining_amount",
         progress_field: "paid_progress",
-        is_paid_field: "is_paid"
+        is_paid_field: "is_paid",
+
+        colors: {
+          paid: "#16A34A",
+          partial: "#F59E0B",
+          unpaid: "#EF4444"
+        }
       }
     },
     {
