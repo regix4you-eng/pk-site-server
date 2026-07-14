@@ -38,7 +38,7 @@ deadline_clients as (
     c.source_url,
 
     c.reminder,
-    c.comment,
+    c.production_comment as comment,
 
     c.status_id::text as status_id,
     ps.name as status_name,
