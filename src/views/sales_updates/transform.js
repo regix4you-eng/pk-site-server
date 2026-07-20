@@ -399,7 +399,7 @@ function transformView(input) {
 
           actions: [
             sendDocumentsAction(),
-            openUpdateAction(),
+            //openUpdateAction(),
           ],
         },
       ],
