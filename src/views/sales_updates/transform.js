@@ -1,11 +1,6 @@
 function transformView(input) {
   const FALLBACK_COLOR = "#64748B";
 
-
-  // =========================================================
-  // HELPERS
-  // =========================================================
-
   function ensureArray(value) {
     if (!value) return [];
 
@@ -28,7 +23,6 @@ function transformView(input) {
     return [];
   }
 
-
   function normalizeColor(value) {
     const color = String(value || "").trim();
 
@@ -47,15 +41,13 @@ function transformView(input) {
     return FALLBACK_COLOR;
   }
 
-
   function normalizeOption(option) {
     return {
       value: String(option?.value || ""),
       label: String(option?.label || ""),
-      color: normalizeColor(option?.color)
+      color: normalizeColor(option?.color),
     };
   }
-
 
   function normalizeSource(value) {
     const source = String(value || "")
@@ -69,7 +61,7 @@ function transformView(input) {
       return {
         key: "demo",
         label: "Demo",
-        color: "#2563EB"
+        color: "#2563EB",
       };
     }
 
@@ -81,53 +73,55 @@ function transformView(input) {
       return {
         key: "website",
         label: "Svetainė",
-        color: "#7C3AED"
+        color: "#7C3AED",
+      };
+    }
+
+    if (
+      source === "documents" ||
+      source === "docs"
+    ) {
+      return {
+        key: "documents",
+        label: "Dokumentai",
+        color: "#64748B",
       };
     }
 
     return {
       key: source || "production",
       label: source || "Gamyba",
-      color: FALLBACK_COLOR
+      color: FALLBACK_COLOR,
     };
   }
 
-
-  // =========================================================
-  // DATA
-  // =========================================================
-
   const clients = ensureArray(input.clients);
 
-  const clientStatuses = ensureArray(input.client_statuses)
+  const clientStatuses = ensureArray(
+    input.client_statuses
+  )
     .map(normalizeOption)
-    .filter(option =>
-      option.value &&
-      option.label
+    .filter(
+      (option) =>
+        option.value &&
+        option.label
     );
 
-
   const statusLabelById = new Map(
-    clientStatuses.map(status => [
+    clientStatuses.map((status) => [
       String(status.value),
-      String(status.label || "")
+      String(status.label || ""),
     ])
   );
-
 
   const statusColorById = new Map(
-    clientStatuses.map(status => [
+    clientStatuses.map((status) => [
       String(status.value),
-      normalizeColor(status.color)
+      normalizeColor(status.color),
     ])
   );
 
-
-  // =========================================================
-  // ROWS
-  // =========================================================
-
-  const rows = clients.map(row => {
+  const rows = clients.map((row) => {
     const statusId = String(
       row.status_id || ""
     );
@@ -138,18 +132,11 @@ function transformView(input) {
 
     return {
       id: row.id,
-
-      // =====================================================
-      // ACTION REQUEST TECHNICAL CONTEXT
-      // =====================================================
+      client_id: row.id,
 
       view_key: "sales_updates",
       entity_type: "client",
       operation: "read",
-
-      // =====================================================
-      // CLIENT
-      // =====================================================
 
       company_name:
         row.company_name || "",
@@ -166,9 +153,8 @@ function transformView(input) {
       source_url:
         row.source_url || "",
 
-      // =====================================================
-      // CLIENT STATUS
-      // =====================================================
+      google_drive_url:
+        row.google_drive_url || "",
 
       status_id:
         statusId,
@@ -184,10 +170,6 @@ function transformView(input) {
           statusColorById.get(statusId) ||
           FALLBACK_COLOR
         ),
-
-      // =====================================================
-      // PRODUCTION UPDATE
-      // =====================================================
 
       production_update_source:
         source.key,
@@ -210,68 +192,62 @@ function transformView(input) {
       production_updated_by_name:
         row.production_updated_by_name || "",
 
-      // =====================================================
-      // URLS
-      // =====================================================
-
       demo_url:
         row.demo_url || "",
 
       website_url:
-        row.website_url || ""
+        row.website_url || "",
     };
   });
 
+  const rowsWithoutDrive = rows.filter(
+    (row) =>
+      !String(row.google_drive_url || "").trim()
+  );
 
-  // =========================================================
-  // COLUMNS
-  // =========================================================
+  const rowsWithDrive = rows.filter(
+    (row) =>
+      String(row.google_drive_url || "").trim()
+  );
 
   const columns = [
-
     {
-      key: "company_name",
-      label: "Klientas",
+      key: "phone",
+      label: "Tel.",
       field_type: "text",
-      editable: false
+      editable: false,
     },
-
     {
       key: "contact_name",
       label: "Kontaktas",
       field_type: "text",
-      editable: false
+      editable: false,
     },
-
     {
       key: "production_update_source_label",
       label: "Šaltinis",
       field_type: "badge",
-      editable: false
+      editable: false,
     },
-
     {
       key: "production_updated_by_name",
       label: "Atnaujino",
       field_type: "text",
-      editable: false
+      editable: false,
     },
-
     {
       key: "production_updated_at",
       label: "Atnaujinta",
       field_type: "datetime",
-      editable: false
+      editable: false,
     },
-
     {
       key: "status_id",
       label: "Būsena",
       field_type: "select",
       editable: false,
-      options_ref: "client_statuses"
+      options_ref: "client_statuses",
     },
-
     {
       key: "demo_url",
       label: "Demo",
@@ -279,10 +255,9 @@ function transformView(input) {
       editable: false,
       config: {
         open_in_new_tab: true,
-        empty_label: ""
-      }
+        empty_label: "",
+      },
     },
-
     {
       key: "website_url",
       label: "Svetainė",
@@ -290,15 +265,70 @@ function transformView(input) {
       editable: false,
       config: {
         open_in_new_tab: true,
-        empty_label: ""
-      }
-    }
+        empty_label: "",
+      },
+    },
+    {
+      key: "google_drive_url",
+      label: "GDrive",
+      field_type: "link",
+      editable: false,
+      config: {
+        open_in_new_tab: true,
+        empty_label: "—",
+      },
+    },
   ];
 
+  function prepareDocumentsAction() {
+    return {
+      key: "prepare_documents",
+      label: "📄 Paruošti dokumentus",
+      type: "button",
+      placement: "row",
 
-  // =========================================================
-  // ACTION
-  // =========================================================
+      method: "POST",
+      api_url: "/documents?action=prepare",
+
+      payload: {
+        source: "row",
+      },
+
+      after_success: {
+        type: "refresh_view",
+      },
+
+      config: {
+        variant: "primary",
+        color: "#8B5CF6",
+      },
+    };
+  }
+
+  function sendDocumentsAction() {
+    return {
+      key: "send_documents",
+      label: "📩 Siųsti dokumentus",
+      type: "button",
+      placement: "row",
+
+      method: "POST",
+      api_url: "/documents?action=send",
+
+      payload: {
+        source: "row",
+      },
+
+      after_success: {
+        type: "refresh_view",
+      },
+
+      config: {
+        variant: "primary",
+        color: "#14B8A6",
+      },
+    };
+  }
 
   function openUpdateAction() {
     return {
@@ -311,19 +341,14 @@ function transformView(input) {
       api_url: "/actions/sales/accept",
 
       payload: {
-        source: "row"
+        source: "row",
       },
 
       after_success: {
-        type: "refresh_view"
-      }
+        type: "refresh_view",
+      },
     };
   }
-
-
-  // =========================================================
-  // RESPONSE
-  // =========================================================
 
   return {
     version: "ui.v1",
@@ -335,33 +360,57 @@ function transformView(input) {
 
       children: [
         {
-          key: "sales_updates_table",
+          key: "sales_updates_without_drive_table",
           type: "table",
-          label: `Neperskaityti atnaujinimai (${rows.length})`,
+          label:
+            `Reikia paruošti dokumentus (${rowsWithoutDrive.length})`,
 
           config: {
             primary_key: "id",
             editable: false,
-            columns
+            columns,
           },
 
           data: {
-            rows
+            rows: rowsWithoutDrive,
           },
 
           actions: [
-            openUpdateAction()
-          ]
-        }
-      ]
+            prepareDocumentsAction(),
+            openUpdateAction(),
+          ],
+        },
+
+        {
+          key: "sales_updates_with_drive_table",
+          type: "table",
+          label:
+            `Dokumentai paruošti (${rowsWithDrive.length})`,
+
+          config: {
+            primary_key: "id",
+            editable: false,
+            columns,
+          },
+
+          data: {
+            rows: rowsWithDrive,
+          },
+
+          actions: [
+            sendDocumentsAction(),
+            openUpdateAction(),
+          ],
+        },
+      ],
     },
 
     resources: {
       client_statuses: {
         type: "options",
-        data: clientStatuses
-      }
-    }
+        data: clientStatuses,
+      },
+    },
   };
 }
 

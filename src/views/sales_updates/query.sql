@@ -1,12 +1,33 @@
-with current_member as (
+with user_context as (
   select
-    $1::uuid
-      as team_member_id
+    $1::uuid as team_member_id
 ),
 
-scoped_clients as (
+client_statuses as (
   select
-    c.id,
+    coalesce(
+      json_agg(
+        json_build_object(
+          'value', ps.id::text,
+          'label', ps.name,
+          'color', coalesce(ps.color, '#64748B')
+        )
+        order by ps.name
+      ),
+      '[]'::json
+    ) as data
+
+  from public.process_statuses ps
+
+  join public.entity_process_groups epg
+    on epg.process_group_id = ps.process_group_id
+
+  where epg.entity_key = 'clients'
+),
+
+updated_clients as (
+  select
+    c.id::text as id,
 
     c.company_name,
     c.contact_name,
@@ -14,114 +35,163 @@ scoped_clients as (
     c.email,
     c.source_url,
 
-    c.status_id,
-    ps.name as status_name,
-    ps.color as status_color,
+    c.google_drive_url,
 
-    c.demo_url,
-    c.website_url,
+    c.status_id::text as status_id,
+    ps.name as status_name,
+    coalesce(ps.color, '#64748B') as status_color,
 
     c.production_updated_at,
     c.production_update_read_at,
     c.production_update_source,
-    c.production_updated_by_team_member_id,
+    c.production_updated_by_team_member_id::text
+      as production_updated_by_team_member_id,
 
-    updater.name as production_updated_by_name
+    updated_by.name as production_updated_by_name,
+
+    demo_service.url as demo_url,
+    website_service.url as website_url,
+
+    c.created_at,
+    c.updated_at
 
   from public.clients c
 
-  cross join current_member cm
+  cross join user_context uc
 
   left join public.process_statuses ps
     on ps.id = c.status_id
 
-  left join public.team_members updater
-    on updater.id = c.production_updated_by_team_member_id
+  left join public.team_members updated_by
+    on updated_by.id =
+      c.production_updated_by_team_member_id
 
-  where c.team_member_id = cm.team_member_id
+  left join lateral (
+    select
+      coalesce(
+        nullif(trim(s.url), ''),
+        nullif(trim(s.base44_url), '')
+      ) as url
 
-    and c.is_trashed = false
+    from public.services s
 
-    and c.production_updated_at is not null
+    where s.client_id = c.id
+      and s.entity_key = 'demo_services'
+      and coalesce(s.is_trashed, false) = false
+
+    order by s.created_at desc
+
+    limit 1
+  ) demo_service
+    on true
+
+  left join lateral (
+    select
+      coalesce(
+        nullif(trim(s.url), ''),
+        nullif(trim(s.base44_url), '')
+      ) as url
+
+    from public.services s
+
+    where s.client_id = c.id
+      and s.entity_key = 'website_services'
+      and coalesce(s.is_trashed, false) = false
+
+    order by s.created_at desc
+
+    limit 1
+  ) website_service
+    on true
+
+    where coalesce(c.is_trashed, false) = false
+
+    and c.team_member_id = uc.team_member_id
 
     and (
-      c.production_update_read_at is null
-      or c.production_update_read_at < c.production_updated_at
+      (
+        c.production_updated_at is not null
+
+        and (
+          c.production_update_read_at is null
+
+          or c.production_update_read_at
+            < c.production_updated_at
+        )
+      )
+
+      or (
+        ps.name = 'Dokumentai paruošti'
+
+        and (
+          c.production_update_read_at is null
+
+          or c.production_updated_at is null
+
+          or c.production_update_read_at
+            < coalesce(
+              c.production_updated_at,
+              c.updated_at,
+              c.created_at
+            )
+        )
+      )
     )
 )
 
 select
-
-  -- =======================================================
-  -- CLIENTS
-  -- =======================================================
-
-  coalesce(
-    (
-      select jsonb_agg(
-        jsonb_build_object(
-          'id', sc.id,
-
-          'company_name', sc.company_name,
-          'contact_name', sc.contact_name,
-          'phone', sc.phone,
-          'email', sc.email,
-          'source_url', sc.source_url,
-
-          'status_id', sc.status_id,
-          'status_name', sc.status_name,
-          'status_color', sc.status_color,
-
-          'demo_url', sc.demo_url,
-          'website_url', sc.website_url,
-
-          'production_updated_at', sc.production_updated_at,
-          'production_update_read_at', sc.production_update_read_at,
-
-          'production_update_source', sc.production_update_source,
-
-          'production_updated_by_team_member_id',
-            sc.production_updated_by_team_member_id,
-
-          'production_updated_by_name',
-            sc.production_updated_by_name
-        )
-        order by sc.production_updated_at desc
-      )
-      from scoped_clients sc
-    ),
-    '[]'::jsonb
-  ) as clients,
-
-
-  -- =======================================================
-  -- CLIENT STATUSES
-  -- =======================================================
+  (
+    select data
+    from client_statuses
+  ) as client_statuses,
 
   coalesce(
     (
-      select jsonb_agg(
-        jsonb_build_object(
-          'value', status_options.id,
-          'label', status_options.name,
-          'color', status_options.color
+      select
+        json_agg(
+          json_build_object(
+            'id', uc.id,
+
+            'company_name', uc.company_name,
+            'contact_name', uc.contact_name,
+            'phone', uc.phone,
+            'email', uc.email,
+            'source_url', uc.source_url,
+
+            'google_drive_url', uc.google_drive_url,
+
+            'status_id', uc.status_id,
+            'status_name', uc.status_name,
+            'status_color', uc.status_color,
+
+            'production_updated_at',
+              uc.production_updated_at,
+
+            'production_update_read_at',
+              uc.production_update_read_at,
+
+            'production_update_source',
+              uc.production_update_source,
+
+            'production_updated_by_team_member_id',
+              uc.production_updated_by_team_member_id,
+
+            'production_updated_by_name',
+              uc.production_updated_by_name,
+
+            'demo_url', uc.demo_url,
+            'website_url', uc.website_url,
+
+            'created_at', uc.created_at,
+            'updated_at', uc.updated_at
+          )
+
+          order by
+            uc.production_updated_at desc,
+            uc.created_at desc
         )
-        order by status_options.name
-      )
 
-      from (
-        select distinct
-          ps.id,
-          ps.name,
-          ps.color
-
-        from public.process_statuses ps
-
-        join public.entity_process_groups epg
-          on epg.process_group_id = ps.process_group_id
-
-        where epg.entity_key = 'clients'
-      ) status_options
+      from updated_clients uc
     ),
-    '[]'::jsonb
-  ) as client_statuses;
+    '[]'::json
+  ) as clients;
