@@ -67,6 +67,11 @@ input_data as (
     ) as plan_id_raw,
 
     coalesce(
+      ci.change->'fields'->>'service_type_id',
+      '__NO_CHANGE__'
+    ) as service_type_id_raw,
+
+    coalesce(
       ci.change->'fields'->>'category_id',
       '__NO_CHANGE__'
     ) as category_id_raw,
@@ -433,6 +438,27 @@ resolved_data as (
       else ec.plan_id
     end as plan_id,
 
+    -- Paslauga
+    case
+      when i.service_type_id_raw = '__NO_CHANGE__'
+        then ec.service_type_id
+
+      when nullif(trim(i.service_type_id_raw), '') is null
+        then null
+
+      when i.service_type_id_raw ~*
+        '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        and exists (
+          select 1
+          from public.client_service_types cst
+          where cst.id = i.service_type_id_raw::uuid
+            and cst.is_active = true
+        )
+        then i.service_type_id_raw::uuid
+
+      else ec.service_type_id
+    end as service_type_id,
+
     -- Kategorija
     case
       when i.category_id_raw = '__NO_CHANGE__'
@@ -590,6 +616,7 @@ final_data as (
     rd.reminder,
 
     rd.plan_id,
+    rd.service_type_id,
     rd.category_id,
 
     -- statusas tik rankinis
@@ -651,6 +678,7 @@ updated_client as (
     reminder = vd.reminder,
 
     plan_id = vd.plan_id,
+    service_type_id = vd.service_type_id,
 
     category_id = vd.category_id,
 
@@ -690,6 +718,7 @@ updated_client as (
     c.reminder,
 
     c.plan_id::text,
+    c.service_type_id::text,
 
     c.team_member_id::text,
     c.category_id::text,
@@ -928,6 +957,10 @@ select
   p.name as plan_name,
   coalesce(p.color, '#64748B') as plan_color,
 
+  uc.service_type_id,
+  cst.key as service_type_key,
+  cst.name as service_type_name,
+
   uc.team_member_id,
   tm.name as team_member_name,
 
@@ -970,6 +1003,9 @@ from updated_client uc
 
 left join public.plans p
   on p.id = uc.plan_id::uuid
+
+left join public.client_service_types cst
+  on cst.id = uc.service_type_id::uuid
 
 left join public.team_members tm
   on tm.id = uc.team_member_id::uuid

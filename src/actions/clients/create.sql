@@ -65,6 +65,11 @@ input_data as (
       ''
     ) as plan_id_raw,
 
+    nullif(
+      trim(coalesce(ip.changes -> 'fields' ->> 'service_type_id', '')),
+      ''
+    ) as service_type_id_raw,
+
     ip.team_member_id,
 
     nullif(
@@ -170,6 +175,30 @@ resolved_status as (
   from input_data i
 
   cross join default_status ds
+),
+
+
+-- =========================================================
+-- 4. RESOLVE SERVICE TYPE BY UUID
+-- =========================================================
+
+selected_service_type as (
+  select
+    cst.id,
+    cst.key,
+    cst.name
+
+  from public.client_service_types cst
+
+  cross join input_data i
+
+  where i.service_type_id_raw ~*
+    '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+
+    and cst.id = i.service_type_id_raw::uuid
+    and cst.is_active = true
+
+  limit 1
 ),
 
 
@@ -457,6 +486,7 @@ created_client as (
     source_url,
 
     plan_id,
+    service_type_id,
 
     team_member_id,
     category_id,
@@ -491,6 +521,11 @@ created_client as (
 
       else null
     end as plan_id,
+
+    (
+      select id
+      from selected_service_type
+    ) as service_type_id,
 
     i.team_member_id,
     fc.id as category_id,
@@ -543,6 +578,7 @@ created_client as (
     source_url,
 
     plan_id,
+    service_type_id,
 
     team_member_id,
     category_id,
@@ -997,6 +1033,15 @@ select
     '#64748B'
   ) as plan_color,
 
+  cc.service_type_id::text
+    as service_type_id,
+
+  cst.key
+    as service_type_key,
+
+  cst.name
+    as service_type_name,
+
   cc.team_member_id::text
     as team_member_id,
 
@@ -1046,6 +1091,9 @@ from created_client cc
 
 left join public.plans p
   on p.id = cc.plan_id
+
+left join public.client_service_types cst
+  on cst.id = cc.service_type_id
 
 left join public.team_members tm
   on tm.id = cc.team_member_id

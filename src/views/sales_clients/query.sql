@@ -21,7 +21,15 @@ client_statuses as (
         json_build_object(
           'value', ps.id::text,
           'label', ps.name,
-          'color', coalesce(ps.color, '#64748B')
+          'color', coalesce(ps.color, '#64748B'),
+          'service_type_ids', coalesce(
+            status_service_types.service_type_ids,
+            '[]'::json
+          ),
+          'service_type_keys', coalesce(
+            status_service_types.service_type_keys,
+            '[]'::json
+          )
         )
         order by
           pg.sort_order asc,
@@ -39,6 +47,38 @@ client_statuses as (
 
   join public.entity_process_groups epg
     on epg.process_group_id = ps.process_group_id
+
+  left join lateral (
+    select
+      coalesce(
+        json_agg(
+          cst.id::text
+          order by
+            cst.sort_order asc,
+            cst.name asc
+        ),
+        '[]'::json
+      ) as service_type_ids,
+
+      coalesce(
+        json_agg(
+          cst.key
+          order by
+            cst.sort_order asc,
+            cst.name asc
+        ),
+        '[]'::json
+      ) as service_type_keys
+
+    from public.process_status_service_types psst
+
+    join public.client_service_types cst
+      on cst.id = psst.service_type_id
+
+    where psst.process_status_id = ps.id
+      and cst.is_active = true
+  ) status_service_types
+    on true
 
   where epg.entity_key = 'clients'
 ),
@@ -67,6 +107,31 @@ plan_options as (
 
   where p.name is not null
     and trim(p.name) <> ''
+),
+
+-- =========================================================
+-- SERVICE TYPE OPTIONS
+-- =========================================================
+
+service_type_options as (
+  select
+    coalesce(
+      json_agg(
+        json_build_object(
+          'value', cst.id::text,
+          'label', cst.name,
+          'key', cst.key
+        )
+        order by
+          cst.sort_order asc,
+          cst.name asc
+      ),
+      '[]'::json
+    ) as data
+
+  from public.client_service_types cst
+
+  where cst.is_active = true
 ),
 
 -- =========================================================
@@ -152,7 +217,12 @@ clients_data as (
     -- 6. Priminimas
     c.reminder,
 
-    -- 7. Būsena
+    -- 7. Paslauga
+    c.service_type_id::text as service_type_id,
+    cst.key as service_type_key,
+    cst.name as service_type_name,
+
+    -- 8. Būsena
     c.status_id::text as status_id,
     ps.name as status_name,
     coalesce(ps.color, '#64748B') as status_color,
@@ -265,6 +335,9 @@ clients_data as (
 
   left join public.client_categories cc
     on cc.id = c.category_id
+
+  left join public.client_service_types cst
+    on cst.id = c.service_type_id
 
   left join public.process_statuses ps
     on ps.id = c.status_id
@@ -381,6 +454,15 @@ select
   ) as plan_options,
 
   -- =====================================================
+  -- SERVICE TYPE OPTIONS
+  -- =====================================================
+
+  (
+    select data
+    from service_type_options
+  ) as service_type_options,
+
+  -- =====================================================
   -- CATEGORY COLOR OPTIONS
   -- =====================================================
 
@@ -471,7 +553,20 @@ select
               cd.reminder,
 
             -- =================================================
-            -- 7. Būsena
+            -- 7. Paslauga
+            -- =================================================
+
+            'service_type_id',
+              cd.service_type_id,
+
+            'service_type_key',
+              cd.service_type_key,
+
+            'service_type_name',
+              cd.service_type_name,
+
+            -- =================================================
+            -- 8. Būsena
             -- =================================================
 
             'status_id',

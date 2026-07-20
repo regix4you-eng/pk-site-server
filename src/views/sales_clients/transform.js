@@ -1,6 +1,5 @@
 function transformView(input) {
   const FALLBACK_COLOR = "#64748B";
-  const GOOGLE_ADS_STATUS_NAME = "Google Ads reklama";
 
   function ensureArray(value) {
     if (!value) return [];
@@ -10,7 +9,10 @@ function transformView(input) {
     if (typeof value === "string") {
       try {
         const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed : [];
+
+        return Array.isArray(parsed)
+          ? parsed
+          : [];
       } catch {
         return [];
       }
@@ -41,26 +43,80 @@ function transformView(input) {
     return {
       value: String(option.value || ""),
       label: String(option.label || ""),
-      color: normalizeColor(option.color)
+      color: normalizeColor(option.color),
+      service_type_ids: ensureArray(
+        option.service_type_ids
+      ).map((id) => String(id || "")),
+      service_type_keys: ensureArray(
+        option.service_type_keys
+      ).map((key) => String(key || "")),
     };
+  }
+
+  function normalizeServiceTypeOption(option) {
+    return {
+      value: String(option.value || ""),
+      label: String(option.label || ""),
+      key: String(option.key || ""),
+    };
+  }
+
+  function safeKey(value) {
+    return String(value || "unknown")
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, "_")
+      .replace(/^_+|_+$/g, "");
   }
 
   const clients = ensureArray(input.clients);
 
-  const categories = ensureArray(input.categories).map(category => ({
-    id: String(category.id || ""),
-    name: String(category.name || ""),
-    color: normalizeColor(category.color),
-    created_at: category.created_at || ""
-  }));
+  const categories = ensureArray(input.categories).map(
+    (category) => ({
+      id: String(category.id || ""),
+      name: String(category.name || ""),
+      color: normalizeColor(category.color),
+      created_at: category.created_at || "",
+    })
+  );
 
-  const clientStatuses = ensureArray(input.client_statuses).map(normalizeOption);
-  const planOptions = ensureArray(input.plan_options).map(normalizeOption);
+  const clientStatuses = ensureArray(
+    input.client_statuses
+  ).map(normalizeOption);
 
-  let categoryColorOptions = ensureArray(input.category_color_options).map(option => ({
+  const planOptions = ensureArray(
+    input.plan_options
+  ).map(normalizeOption);
+
+  const serviceTypeOptions = ensureArray(
+    input.service_type_options
+  )
+    .map(normalizeServiceTypeOption)
+    .filter(
+      (option) =>
+        option.value &&
+        option.label
+    );
+
+  const serviceTypeFilterOptions = [
+    {
+      value: "",
+      label: "Visos paslaugos",
+      key: "",
+    },
+    ...serviceTypeOptions,
+  ];
+
+  let categoryColorOptions = ensureArray(
+    input.category_color_options
+  ).map((option) => ({
     value: normalizeColor(option.value || option.color),
-    label: String(option.label || option.value || option.color || "Spalva"),
-    color: normalizeColor(option.color || option.value)
+    label: String(
+      option.label ||
+      option.value ||
+      option.color ||
+      "Spalva"
+    ),
+    color: normalizeColor(option.color || option.value),
   }));
 
   if (!categoryColorOptions.length) {
@@ -68,8 +124,8 @@ function transformView(input) {
       {
         value: FALLBACK_COLOR,
         label: "Spalva",
-        color: FALLBACK_COLOR
-      }
+        color: FALLBACK_COLOR,
+      },
     ];
   }
 
@@ -81,42 +137,14 @@ function transformView(input) {
     defaultNewCategoryColor ||
     FALLBACK_COLOR;
 
-  const defaultStatus = clientStatuses.find(status =>
-    String(status.label || "").trim().toLowerCase() === "naujas"
+  const defaultStatus = clientStatuses.find(
+    (status) =>
+      String(status.label || "")
+        .trim()
+        .toLowerCase() === "naujas"
   );
 
   const defaultStatusId = defaultStatus?.value || "";
-
-  const googleAdsStatus = clientStatuses.find(status =>
-    String(status.label || "").trim().toLowerCase() ===
-    GOOGLE_ADS_STATUS_NAME.toLowerCase()
-  );
-
-  const googleAdsStatusId = googleAdsStatus?.value || "";
-
-  function safeKey(value) {
-    return String(value || "unknown")
-      .toLowerCase()
-      .replace(/[^a-z0-9_]+/g, "_")
-      .replace(/^_+|_+$/g, "");
-  }
-
-  function isGoogleAdsClient(row) {
-    const statusName = String(row.status_name || "")
-      .trim()
-      .toLowerCase();
-
-    const statusId = String(row.status_id || "")
-      .trim();
-
-    return (
-      statusName === GOOGLE_ADS_STATUS_NAME.toLowerCase() ||
-      (
-        googleAdsStatusId &&
-        statusId === googleAdsStatusId
-      )
-    );
-  }
 
   function normalizeClient(row) {
     const price = Number(row.price || 0);
@@ -162,6 +190,10 @@ function transformView(input) {
       contact_name: row.contact_name || "",
 
       reminder: row.reminder || "",
+
+      service_type_id: row.service_type_id || "",
+      service_type_key: row.service_type_key || "",
+      service_type_name: row.service_type_name || "",
 
       status_id: row.status_id || "",
       status_name: row.status_name || "",
@@ -213,7 +245,7 @@ function transformView(input) {
           ? null
           : Number(row.sort_order),
 
-      created_at: row.created_at || ""
+      created_at: row.created_at || "",
     };
   }
 
@@ -222,15 +254,15 @@ function transformView(input) {
       key: "category_name",
       label: "Kategorijos pavadinimas",
       field_type: "text",
-      editable: true
+      editable: true,
     },
     {
       key: "category_color",
       label: "Spalva",
       field_type: "select",
       editable: true,
-      options_ref: "category_colors"
-    }
+      options_ref: "category_colors",
+    },
   ];
 
   const clientColumns = [
@@ -238,75 +270,90 @@ function transformView(input) {
       key: "company_name",
       label: "Pavadinimas",
       field_type: "text",
-      editable: true
+      editable: true,
     },
     {
       key: "phone",
       label: "Tel.",
       field_type: "phone",
-      editable: true
+      editable: true,
     },
     {
       key: "source_url",
       label: "Nuoroda",
       field_type: "link",
-      editable: true
+      editable: true,
     },
     {
       key: "email",
       label: "Email",
       field_type: "text",
-      editable: true
+      editable: true,
     },
     {
       key: "contact_name",
       label: "Klientas",
       field_type: "text",
-      editable: true
+      editable: true,
     },
     {
       key: "reminder",
       label: "Priminimas",
       field_type: "text",
-      editable: true
+      editable: true,
+    },
+    {
+      key: "service_type_id",
+      label: "Paslauga",
+      field_type: "select",
+      editable: true,
+      options_ref: "service_type_options",
     },
     {
       key: "status_id",
       label: "Būsena",
       field_type: "select",
       editable: true,
-      options_ref: "client_statuses"
+      options_ref: "client_statuses",
+      config: {
+        filter_options_by_row: {
+          option_array_field: "service_type_ids",
+          row_field: "service_type_id",
+          include_empty_option_array: true,
+          empty_row_shows_all: true,
+        },
+      },
     },
     {
       key: "followup_count",
       label: "Skambučiai",
       field_type: "number",
-      editable: true
+      editable: true,
     },
     {
       key: "followup_time",
       label: "Skambinti",
       field_type: "datetime",
-      editable: true
+      editable: true,
     },
     {
       key: "plan_id",
       label: "Planas",
       field_type: "select",
       editable: true,
-      options_ref: "plan_options"
+      options_ref: "plan_options",
     },
     {
       key: "price",
       label: "Kaina",
       field_type: "number",
-      editable: true
+      editable: true,
     },
     {
       key: "advance_paid",
       label: "Avansas",
       field_type: "number",
-      editable: true
+      editable: true,
     },
     {
       key: "remaining_amount",
@@ -324,9 +371,9 @@ function transformView(input) {
         colors: {
           paid: "#16A34A",
           partial: "#F59E0B",
-          unpaid: "#EF4444"
-        }
-      }
+          unpaid: "#EF4444",
+        },
+      },
     },
     {
       key: "production_comment",
@@ -335,8 +382,8 @@ function transformView(input) {
       editable: true,
       config: {
         display: "truncate",
-        overflow: "popover"
-      }
+        overflow: "popover",
+      },
     },
     {
       key: "demo_url",
@@ -345,8 +392,8 @@ function transformView(input) {
       editable: false,
       config: {
         open_in_new_tab: true,
-        empty_label: "Laukia..."
-      }
+        empty_label: "Laukia...",
+      },
     },
     {
       key: "website_url",
@@ -355,14 +402,14 @@ function transformView(input) {
       editable: false,
       config: {
         open_in_new_tab: true,
-        empty_label: "Laukia..."
-      }
+        empty_label: "Laukia...",
+      },
     },
     {
       key: "factory_deadline",
       label: "Deadline",
       field_type: "datetime",
-      editable: true
+      editable: true,
     },
     {
       key: "post_production_comment",
@@ -371,9 +418,9 @@ function transformView(input) {
       editable: true,
       config: {
         display: "truncate",
-        overflow: "popover"
-      }
-    }
+        overflow: "popover",
+      },
+    },
   ];
 
   function addClientAction(categoryId, options = {}) {
@@ -388,6 +435,10 @@ function transformView(input) {
         contact_name: "",
 
         reminder: "",
+
+        service_type_id: "",
+        service_type_key: "",
+        service_type_name: "",
 
         price: "",
         advance_paid: "",
@@ -421,8 +472,8 @@ function transformView(input) {
 
         created_at: "",
 
-        ...(options.extraDefaults || {})
-      }
+        ...(options.extraDefaults || {}),
+      },
     };
 
     if (options.defaultsFrom) {
@@ -436,7 +487,7 @@ function transformView(input) {
       placement: "table_header",
       align: "right",
       execution: "local",
-      effect
+      effect,
     };
   }
 
@@ -449,9 +500,9 @@ function transformView(input) {
       execution: "local",
       effect: {
         type: "mark_row_operation",
-        operation: "delete"
+        operation: "delete",
       },
-      confirm: true
+      confirm: true,
     };
   }
 
@@ -466,8 +517,8 @@ function transformView(input) {
       api_url: `/actions/client_categories/delete?category_id=${encodeURIComponent(categoryId)}`,
       confirm: true,
       after_success: {
-        type: "refresh_view"
-      }
+        type: "refresh_view",
+      },
     };
   }
 
@@ -480,8 +531,8 @@ function transformView(input) {
     const actions = [
       addClientAction(categoryId, {
         extraDefaults:
-          options.extraAddDefaults || {}
-      })
+          options.extraAddDefaults || {},
+      }),
     ];
 
     if (categoryId && categoryId !== "uncategorized") {
@@ -499,7 +550,7 @@ function transformView(input) {
 
         row_drag: {
           enabled: true,
-          order_field: "sort_order"
+          order_field: "sort_order",
         },
 
         autosave: {
@@ -508,18 +559,18 @@ function transformView(input) {
           method: "PATCH",
           api_url: "/actions/clients/save",
           payload: {
-            source: "changeset"
-          }
+            source: "changeset",
+          },
         },
 
-        columns: clientColumns
+        columns: clientColumns,
       },
 
       data: {
-        rows
+        rows,
       },
 
-      actions
+      actions,
     };
   }
 
@@ -535,18 +586,18 @@ function transformView(input) {
         primary_key: "id",
         editable: true,
         density: "compact",
-        columns: categoryMetaColumns
+        columns: categoryMetaColumns,
       },
       data: {
         rows: [
           {
             id: `meta_${categoryId}`,
             category_name: "Nauja kategorija",
-            category_color: defaultNewCategoryColor
-          }
-        ]
+            category_color: defaultNewCategoryColor,
+          },
+        ],
       },
-      actions: []
+      actions: [],
     };
   }
 
@@ -562,9 +613,9 @@ function transformView(input) {
         row_index: 0,
         mappings: {
           category_name: "category_name",
-          category_color: "category_color"
-        }
-      }
+          category_color: "category_color",
+        },
+      },
     ];
 
     return {
@@ -582,27 +633,27 @@ function transformView(input) {
           api_url: "/actions/clients/save",
           payload: {
             source: "changeset",
-            context_from: categoryContext
-          }
+            context_from: categoryContext,
+          },
         },
 
-        columns: clientColumns
+        columns: clientColumns,
       },
 
       data: {
-        rows: []
+        rows: [],
       },
 
       actions: [
         addClientAction(categoryId, {
           extraDefaults: {
             category_name: "Nauja kategorija",
-            category_color: defaultNewCategoryColor
+            category_color: defaultNewCategoryColor,
           },
-          defaultsFrom: categoryContext
+          defaultsFrom: categoryContext,
         }),
-        deleteClientAction()
-      ]
+        deleteClientAction(),
+      ],
     };
   }
 
@@ -635,15 +686,15 @@ function transformView(input) {
         summary: [
           {
             label: "Klientai",
-            value: rows.length
-          }
-        ]
+            value: rows.length,
+          },
+        ],
       },
 
       data: {
         id: categoryId,
         name: category.name || "",
-        color: categoryColor
+        color: categoryColor,
       },
 
       children: [
@@ -653,10 +704,10 @@ function transformView(input) {
           rows,
           {
             extraAddDefaults:
-              options.extraAddDefaults || {}
+              options.extraAddDefaults || {},
           }
-        )
-      ]
+        ),
+      ],
     };
   }
 
@@ -675,16 +726,16 @@ function transformView(input) {
 
         target: {
           type: "node",
-          key: "sales_clients_all_tab",
+          key: "sales_clients",
           path: "children",
-          position: "prepend"
+          position: "prepend",
         },
 
         defaults: {
           id_prefix: "tmp_category_",
           label: "Nauja kategorija",
           name: "Nauja kategorija",
-          color: defaultNewCategoryColor
+          color: defaultNewCategoryColor,
         },
 
         node: {
@@ -699,16 +750,16 @@ function transformView(input) {
             summary: [
               {
                 label: "Klientai",
-                value: 0
-              }
-            ]
+                value: 0,
+              },
+            ],
           },
 
           data: {
             id: "{{id}}",
             name: "Nauja kategorija",
             color: defaultNewCategoryColor,
-            operation: "create"
+            operation: "create",
           },
 
           children: [
@@ -721,15 +772,14 @@ function transformView(input) {
               "sales_clients_{{id}}",
               "{{id}}",
               "sales_category_{{id}}_meta"
-            )
-          ]
-        }
-      }
+            ),
+          ],
+        },
+      },
     };
   }
 
-  const regularRowsByCategory = new Map();
-  const googleAdsRowsByCategory = new Map();
+  const rowsByCategory = new Map();
 
   for (const rawClient of clients) {
     const client = normalizeClient(rawClient);
@@ -737,118 +787,54 @@ function transformView(input) {
     const categoryId =
       client.category_id || "uncategorized";
 
-    const targetMap =
-      isGoogleAdsClient(client)
-        ? googleAdsRowsByCategory
-        : regularRowsByCategory;
-
-    if (!targetMap.has(categoryId)) {
-      targetMap.set(categoryId, []);
+    if (!rowsByCategory.has(categoryId)) {
+      rowsByCategory.set(categoryId, []);
     }
 
-    targetMap
+    rowsByCategory
       .get(categoryId)
       .push(client);
   }
 
-  function buildCategoryNodesForMap({
-    rowsByCategory,
-    includeEmptyCategories,
-    tablePrefix,
-    extraAddDefaults,
-  }) {
-    const nodes = [];
+  const categoryNodes = [];
 
-    for (const category of categories) {
-      const rows =
-        rowsByCategory.get(category.id) || [];
+  for (const category of categories) {
+    const rows =
+      rowsByCategory.get(category.id) || [];
 
-      if (
-        !includeEmptyCategories &&
-        rows.length === 0
-      ) {
-        continue;
-      }
-
-      nodes.push(
-        buildCategoryNode(
-          category,
-          rows,
-          false,
-          {
-            tablePrefix,
-            extraAddDefaults,
-          }
-        )
-      );
-    }
-
-    const uncategorizedRows =
-      rowsByCategory.get("uncategorized") || [];
-
-    if (uncategorizedRows.length > 0) {
-      nodes.push(
-        buildCategoryNode(
-          {
-            id: "uncategorized",
-            name: "Be kategorijos",
-            color: uncategorizedColor
-          },
-          uncategorizedRows,
-          true,
-          {
-            tablePrefix,
-            extraAddDefaults,
-          }
-        )
-      );
-    }
-
-    return nodes;
+    categoryNodes.push(
+      buildCategoryNode(
+        category,
+        rows,
+        false,
+        {
+          tablePrefix: "sales_clients",
+          extraAddDefaults: {},
+        }
+      )
+    );
   }
 
-  const allCategoryNodes =
-    buildCategoryNodesForMap({
-      rowsByCategory: regularRowsByCategory,
-      includeEmptyCategories: true,
-      tablePrefix: "sales_clients",
-      extraAddDefaults: {},
-    });
+  const uncategorizedRows =
+    rowsByCategory.get("uncategorized") || [];
 
-  const googleAdsCategoryNodes =
-    buildCategoryNodesForMap({
-      rowsByCategory: googleAdsRowsByCategory,
-      includeEmptyCategories: false,
-      tablePrefix: "sales_clients_google_ads",
-      extraAddDefaults: {
-        status_id:
-          googleAdsStatusId || defaultStatusId
-      },
-    });
-
-  const tabsNode = {
-    key: "sales_clients_tabs",
-    type: "tabs",
-    config: {
-      default_child_key: "sales_clients_all_tab"
-    },
-    children: [
-      {
-        key: "sales_clients_all_tab",
-        type: "tab",
-        label: "Visi",
-        actions: [],
-        children: allCategoryNodes
-      },
-      {
-        key: "sales_clients_google_ads_tab",
-        type: "tab",
-        label: "Google Ads",
-        actions: [],
-        children: googleAdsCategoryNodes
-      }
-    ]
-  };
+  if (uncategorizedRows.length > 0) {
+    categoryNodes.push(
+      buildCategoryNode(
+        {
+          id: "uncategorized",
+          name: "Be kategorijos",
+          color: uncategorizedColor,
+        },
+        uncategorizedRows,
+        true,
+        {
+          tablePrefix: "sales_clients",
+          extraAddDefaults: {},
+        }
+      )
+    );
+  }
 
   return {
     version: "ui.v1",
@@ -858,40 +844,62 @@ function transformView(input) {
       type: "view",
       label: "",
 
+      config: {
+        filters: {
+          enabled: true,
+          show_category: true,
+          show_status: true,
+          show_service_type: true,
+          show_keyword: true,
+          service_type_options_ref:
+            "service_type_filter_options",
+          service_type_field:
+            "service_type_id",
+        },
+      },
+
       actions: [
-        addCategoryAction()
+        addCategoryAction(),
       ],
 
-      children: [
-        tabsNode
-      ]
+      children: categoryNodes,
     },
 
     resources: {
       client_statuses: {
         type: "options",
-        data: clientStatuses
+        data: clientStatuses,
       },
 
       plan_options: {
         type: "options",
-        data: planOptions
+        data: planOptions,
+      },
+
+      service_type_options: {
+        type: "options",
+        data: serviceTypeOptions,
+      },
+
+      service_type_filter_options: {
+        type: "options",
+        data: serviceTypeFilterOptions,
       },
 
       category_colors: {
         type: "options",
-        data: categoryColorOptions
+        data: categoryColorOptions,
       },
 
       category_options: {
         type: "options",
-        data: categories.map(category => ({
+        data: categories.map((category) => ({
           value: category.id,
           label: category.name,
-          color: category.color
-        }))
-      }
-    }
+          color: category.color,
+        })),
+      },
+    },
   };
 }
 

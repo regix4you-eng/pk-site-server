@@ -95,6 +95,48 @@ function transformView(input) {
     };
   }
 
+  function normalizeServiceType(row) {
+    const key = String(
+      row.service_type_key || ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const label = String(
+      row.service_type_name || ""
+    ).trim();
+
+    if (key === "website") {
+      return {
+        key,
+        label: label || "Svetainė",
+        color: "#7C3AED",
+      };
+    }
+
+    if (key === "google_ads") {
+      return {
+        key,
+        label: label || "Google Ads",
+        color: "#F59E0B",
+      };
+    }
+
+    if (key === "commercial_offer") {
+      return {
+        key,
+        label: label || "Komercinis",
+        color: "#14B8A6",
+      };
+    }
+
+    return {
+      key,
+      label,
+      color: FALLBACK_COLOR,
+    };
+  }
+
   const clients = ensureArray(input.clients);
 
   const clientStatuses = ensureArray(
@@ -130,6 +172,9 @@ function transformView(input) {
       row.production_update_source
     );
 
+    const serviceType =
+      normalizeServiceType(row);
+
     return {
       id: row.id,
       client_id: row.id,
@@ -137,6 +182,21 @@ function transformView(input) {
       view_key: "sales_updates",
       entity_type: "client",
       operation: "read",
+
+      serial_number:
+        row.serial_number || "",
+
+      service_type_id:
+        row.service_type_id || "",
+
+      service_type_key:
+        serviceType.key,
+
+      service_type_name:
+        serviceType.label,
+
+      service_type_name_color:
+        serviceType.color,
 
       company_name:
         row.company_name || "",
@@ -211,6 +271,18 @@ function transformView(input) {
   );
 
   const columns = [
+    {
+      key: "serial_number",
+      label: "Serijos Nr.",
+      field_type: "text",
+      editable: false,
+    },
+    {
+      key: "service_type_name",
+      label: "Paslauga",
+      field_type: "badge",
+      editable: false,
+    },
     {
       key: "phone",
       label: "Tel.",
@@ -399,7 +471,6 @@ function transformView(input) {
 
           actions: [
             sendDocumentsAction(),
-            //openUpdateAction(),
           ],
         },
       ],
