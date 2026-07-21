@@ -416,15 +416,6 @@ clients_data as (
     --
     -- =====================================================
 
-    and (
-      c.production_updated_at is null
-
-      or (
-        c.production_update_read_at is not null
-        and c.production_update_read_at >= c.production_updated_at
-      )
-    )
-
     and c.status_id is distinct from
       '4689c9ba-fba6-4bf9-bdbf-8fd7e756ff99'::uuid
 )

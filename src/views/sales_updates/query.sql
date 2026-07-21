@@ -117,34 +117,14 @@ updated_clients as (
 
     and c.team_member_id = uc.team_member_id
 
-    and (
-      (
-        c.production_updated_at is not null
-
-        and (
-          c.production_update_read_at is null
-
-          or c.production_update_read_at
-            < c.production_updated_at
-        )
-      )
-
-      or (
-        ps.name = 'Dokumentai paruošti'
-
-        and (
-          c.production_update_read_at is null
-
-          or c.production_updated_at is null
-
-          or c.production_update_read_at
-            < coalesce(
-              c.production_updated_at,
-              c.updated_at,
-              c.created_at
-            )
-        )
-      )
+    and ps.name in (
+      'Demo sukurtas',
+      'Demo pakoreguotas',
+      'Svetainė padaryta',
+      'Svetainė pakoreguota',
+      'Dokumentai paruošti',
+      'Demo išsiųstas',
+      'Svetainė išsiųsta'
     )
 )
 
@@ -202,6 +182,7 @@ select
           )
 
           order by
+            uc.updated_at desc,
             uc.production_updated_at desc,
             uc.created_at desc
         )

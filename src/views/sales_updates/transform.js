@@ -1,6 +1,19 @@
 function transformView(input) {
   const FALLBACK_COLOR = "#64748B";
 
+  const SEND_TO_CLIENT_STATUSES = new Set([
+    "Demo sukurtas",
+    "Demo pakoreguotas",
+    "Svetainė padaryta",
+    "Svetainė pakoreguota",
+    "Dokumentai paruošti",
+  ]);
+
+  const PREPARE_DOCUMENTS_STATUSES = new Set([
+    "Demo išsiųstas",
+    "Svetainė išsiųsta",
+  ]);
+
   function ensureArray(value) {
     if (!value) return [];
 
@@ -260,14 +273,37 @@ function transformView(input) {
     };
   });
 
-  const rowsWithoutDrive = rows.filter(
-    (row) =>
-      !String(row.google_drive_url || "").trim()
-  );
+  const rowsToSendClient = rows.filter((row) => {
+    const hasDriveUrl = String(
+      row.google_drive_url || ""
+    ).trim();
 
-  const rowsWithDrive = rows.filter(
+    if (
+      SEND_TO_CLIENT_STATUSES.has(
+        row.status_name
+      )
+    ) {
+      return true;
+    }
+
+    if (
+      PREPARE_DOCUMENTS_STATUSES.has(
+        row.status_name
+      ) &&
+      hasDriveUrl
+    ) {
+      return true;
+    }
+
+    return false;
+  });
+
+  const rowsToPrepareDocuments = rows.filter(
     (row) =>
-      String(row.google_drive_url || "").trim()
+      PREPARE_DOCUMENTS_STATUSES.has(
+        row.status_name
+      ) &&
+      !String(row.google_drive_url || "").trim()
   );
 
   const columns = [
@@ -352,6 +388,31 @@ function transformView(input) {
     },
   ];
 
+  function sendToClientAction() {
+    return {
+      key: "send_to_client",
+      label: "Siųsti klientui",
+      type: "button",
+      placement: "row",
+
+      method: "POST",
+      api_url: "/documents?action=send",
+
+      payload: {
+        source: "row",
+      },
+
+      after_success: {
+        type: "refresh_view",
+      },
+
+      config: {
+        variant: "primary",
+        color: "#14B8A6",
+      },
+    };
+  }
+
   function prepareDocumentsAction() {
     return {
       key: "prepare_documents",
@@ -377,51 +438,6 @@ function transformView(input) {
     };
   }
 
-  function sendDocumentsAction() {
-    return {
-      key: "send_documents",
-      label: "📩 Siųsti dokumentus",
-      type: "button",
-      placement: "row",
-
-      method: "POST",
-      api_url: "/documents?action=send",
-
-      payload: {
-        source: "row",
-      },
-
-      after_success: {
-        type: "refresh_view",
-      },
-
-      config: {
-        variant: "primary",
-        color: "#14B8A6",
-      },
-    };
-  }
-
-  function openUpdateAction() {
-    return {
-      key: "open_update",
-      label: "Patvirtinti",
-      type: "button",
-      placement: "row",
-
-      method: "PATCH",
-      api_url: "/actions/sales/accept",
-
-      payload: {
-        source: "row",
-      },
-
-      after_success: {
-        type: "refresh_view",
-      },
-    };
-  }
-
   return {
     version: "ui.v1",
 
@@ -432,10 +448,10 @@ function transformView(input) {
 
       children: [
         {
-          key: "sales_updates_without_drive_table",
+          key: "sales_updates_send_to_client_table",
           type: "table",
           label:
-            `Reikia paruošti dokumentus (${rowsWithoutDrive.length})`,
+            `Reikia išsiųsti klientui (${rowsToSendClient.length})`,
 
           config: {
             primary_key: "id",
@@ -444,20 +460,19 @@ function transformView(input) {
           },
 
           data: {
-            rows: rowsWithoutDrive,
+            rows: rowsToSendClient,
           },
 
           actions: [
-            prepareDocumentsAction(),
-            openUpdateAction(),
+            sendToClientAction(),
           ],
         },
 
         {
-          key: "sales_updates_with_drive_table",
+          key: "sales_updates_prepare_documents_table",
           type: "table",
           label:
-            `Dokumentai paruošti (${rowsWithDrive.length})`,
+            `Reikia paruošti dokumentus (${rowsToPrepareDocuments.length})`,
 
           config: {
             primary_key: "id",
@@ -466,11 +481,11 @@ function transformView(input) {
           },
 
           data: {
-            rows: rowsWithDrive,
+            rows: rowsToPrepareDocuments,
           },
 
           actions: [
-            sendDocumentsAction(),
+            prepareDocumentsAction(),
           ],
         },
       ],
