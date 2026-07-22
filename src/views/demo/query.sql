@@ -23,13 +23,17 @@ with demo_statuses as (
 demo_services as (
   select
     sv.id::text as id,
-    sv.name as service_name,
+    ps
+
+  join public.entity_process_groups epg
+    on epg.process_group_id = ps.process_group_id sv.name as service_name,
 
     c.company_name,
     c.source_url,
 
     sv.base44_url,
     sv.base44_prompt,
+    sv.xml_text,
 
     sv.status_id::text as status_id,
 
@@ -81,6 +85,7 @@ select
         'source_url', ds.source_url,
         'base44_url', ds.base44_url,
         'base44_prompt', ds.base44_prompt,
+        'xml_text', ds.xml_text,
         'status_id', ds.status_id,
         'status_name', ds.status_name,
         'status_color', ds.status_color,

@@ -34,6 +34,15 @@ input_data as (
     end as base44_prompt_raw,
 
     case
+      when $1::jsonb #> '{fields,xml_text}' is null
+      then '__NO_CHANGE__'
+      else coalesce(
+        $1::jsonb #>> '{fields,xml_text}',
+        ''
+      )
+    end as xml_text_raw,
+
+    case
       when $1::jsonb #> '{fields,url}' is null
       then '__NO_CHANGE__'
       else trim(
@@ -129,6 +138,16 @@ updated_service as (
       )
     end,
 
+    xml_text = case
+      when i.xml_text_raw = '__NO_CHANGE__'
+      then s.xml_text
+
+      else nullif(
+        i.xml_text_raw,
+        ''
+      )
+    end,
+
     url = case
       when i.url_raw = '__NO_CHANGE__'
       then s.url
@@ -191,6 +210,7 @@ updated_service as (
     s.assigned_team_member_id,
     s.comment,
     s.base44_prompt,
+    s.xml_text,
     s.url,
     s.deadline,
     s.completion_comment,
@@ -266,6 +286,7 @@ select
 
   us.comment,
   us.base44_prompt,
+  us.xml_text,
   us.url,
   us.deadline,
   us.completion_comment,

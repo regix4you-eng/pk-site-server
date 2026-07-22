@@ -97,6 +97,9 @@ function transformDemoView(input) {
       base44_prompt:
         row.base44_prompt || '',
 
+      xml_text:
+        row.xml_text || '',
+
       status_id:
         statusId,
 
@@ -208,6 +211,16 @@ function transformDemoView(input) {
     {
       key: 'base44_prompt',
       label: 'Paruoštas Promptas',
+      field_type: 'text',
+      editable: true,
+      config: {
+        display: 'truncate',
+        overflow: 'popover',
+      },
+    },
+    {
+      key: 'xml_text',
+      label: 'XML',
       field_type: 'text',
       editable: true,
       config: {
